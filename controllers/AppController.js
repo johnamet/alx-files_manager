@@ -1,5 +1,5 @@
-const redisClient = require('../utils/redis').default;
-const dbClient = require('../utils/db').default;
+const redisClient = require('../utils/redis');
+const dbClient = require('../utils/db');
 
 class AppController {
   static waitRedisConnection() {
