@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 import redisClient from '../utils/redis';
-import userQueue from '../utils/queue';
+import userQueue from '../worker';
 
 /**
  * Parses the Basic Authorization header.

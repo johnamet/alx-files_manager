@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import userQueue from '../utils/queue';
+import userQueue from '../worker';
 
 /**
  * UsersController class handles user-related operations.
