@@ -29,7 +29,7 @@ class UsersController {
 
     const result = await dbClient.insertObject({ email, password: hashedPassword });
 
-    res.status(201).send({ email, id: result.InsertedId });
+    res.status(201).send({ email, id: result.insertedId });
   }
 }
 
