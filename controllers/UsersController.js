@@ -21,8 +21,6 @@ class UsersController {
 
     const existingUser = await dbClient.findUser({ email });
 
-    console.log(existingUser);
-
     if (existingUser.length !== 0) {
       return res.status(400).send({ error: 'Already exists' });
     }
