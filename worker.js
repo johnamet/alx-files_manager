@@ -1,10 +1,12 @@
 import Queue from 'bull';
 import sha1 from 'sha1';
-import dbClient from './utils/db'; // Ensure this path is correct
-import redisClient from './utils/redis';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidV4 } from 'uuid';
+import imageThumbnail from 'image-thumbnail';
+import { ObjectId } from 'mongodb';
+import redisClient from './utils/redis';
+import dbClient from './utils/db';
 
 // Initialize userQueue
 const userQueue = new Queue('userQueue', {
@@ -23,53 +25,55 @@ const fileQueue = new Queue('fileQueue', {
 });
 
 fileQueue.process('generateThumbnails', async (job, done) => {
-    const { userId, fileId } = job.data;
-  
-    if (!fileId) {
-      return done(new Error('Missing fileId'));
-    }
-  
-    if (!userId) {
-      return done(new Error('Missing userId'));
-    }
-  
-    const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
-  
-    if (!file) {
-      return done(new Error('File not found'));
-    }
-  
-    const filePath = file.localPath; // Update with the correct file path
-  
-    if (!fs.existsSync(filePath)) {
-      return done(new Error('File not found'));
-    }
-  
-    try {
-      const sizes = [500, 250, 100];
-      const promises = sizes.map(async (size) => {
-        const thumbnail = await imageThumbnail(filePath, { width: size });
-        const thumbnailPath = filePath.replace(/(\.[^/.]+)$/, `_${size}$1`);
-        fs.writeFileSync(thumbnailPath, thumbnail);
-      });
-  
-      await Promise.all(promises);
-      done();
-    } catch (error) {
-      done(error);
-    }
-  });
+  const { userId, fileId } = job.data;
+
+  if (!fileId) {
+    return done(new Error('Missing fileId'));
+  }
+
+  if (!userId) {
+    return done(new Error('Missing userId'));
+  }
+
+  const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
+
+  if (!file) {
+    return done(new Error('File not found'));
+  }
+
+  const filePath = file.localPath; // Update with the correct file path
+
+  if (!fs.existsSync(filePath)) {
+    return done(new Error('File not found'));
+  }
+
+  try {
+    const sizes = [500, 250, 100];
+    const promises = sizes.map(async (size) => {
+      const thumbnail = await imageThumbnail(filePath, { width: size });
+      const thumbnailPath = filePath.replace(/(\.[^/.]+)$/, `_${size}$1`);
+      fs.writeFileSync(thumbnailPath, thumbnail);
+    });
+
+    await Promise.all(promises);
+    done();
+  } catch (error) {
+    done(error);
+  }
+});
 
 // Process file uploads
 fileQueue.process('uploadFile', async (job, done) => {
   const fileData = job.data;
 
   try {
-    const { name, type, parentId, isPublic, data, userId } = fileData;
+    const {
+      type, data,
+    } = fileData;
 
     if (type === 'folder') {
       const newFile = await dbClient.insertFileObject(fileData);
-      done(null, newFile["ops"][0]);
+      done(null, newFile.ops[0]);
       return;
     }
 
@@ -87,7 +91,7 @@ fileQueue.process('uploadFile', async (job, done) => {
 
     const newFile = await dbClient.insertFileObject(fileData);
 
-    done(null, newFile["ops"][0]);
+    done(null, newFile.ops[0]);
   } catch (error) {
     done(error);
   }
@@ -99,8 +103,8 @@ userQueue.process('createUser', async (job, done) => {
   const hashedPassword = sha1(password);
 
   try {
-    await dbClient.insertUserObject({ email, password: hashedPassword });
-    done();
+    const result = await dbClient.insertUserObject({ email, password: hashedPassword });
+    done(null, result.insertedId);
   } catch (error) {
     done(error);
   }
@@ -129,6 +133,30 @@ userQueue.process('signOutUser', async (job, done) => {
     done();
   } catch (error) {
     done(error);
+  }
+});
+
+userQueue.process('sendWelcomeEmail', async (job, done) => {
+  const { userId, email } = job.data;
+
+  if (!userId) {
+    return done(new Error('Missing userId'));
+  }
+
+  if (!email) {
+    return done(new Error('Missing email'));
+  }
+
+  try {
+    const user = await dbClient.findOneUser({ _id: new ObjectId(userId) });
+
+    if (!user) {
+      return done(new Error('User not found'));
+    }
+
+    console.log(`Welcome email sent to ${email}`);
+  } catch (error) {
+    return error;
   }
 });
 
