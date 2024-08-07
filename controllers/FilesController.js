@@ -69,6 +69,62 @@ class FilesController {
 
     return {};
   }
+
+  static async getShow(req, res) {
+    const fileId = req.params.id;
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+
+    const userId = await redisClient.get(key);
+
+    if (!userId) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
+
+    if (!ObjectId.isValid(fileId)) {
+      return res.status(400).send({ error: 'Invalid ID format' });
+    }
+
+    try {
+      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
+
+      if (!file) {
+        return res.status(404).send({ error: 'Not found' });
+      }
+
+      return res.status(200).send(file);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send({ error: 'Internal server error' });
+    }
+  }
+
+  static async getIndex(req, res) {
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+
+    const userId = await redisClient.get(key);
+
+    if (!userId) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { parentId = 0, page = 0 } = req.query;
+    const limit = 20;
+    const skip = page * limit;
+
+    try {
+      const files = await dbClient.findFiles({
+        userId,
+        parentId,
+      }, skip, limit);
+
+      return res.status(200).send(files);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send({ error: 'Internal server error' });
+    }
+  }
 }
 
 export default FilesController;

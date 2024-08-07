@@ -95,6 +95,22 @@ class DBClient {
     return {};
   }
 
+/**
+ * Finds files in the 'files' collection that
+ * matches the given parameters.
+ * @param {Object} params - The parameters to match
+ * @param {number} [skip=0] - The number of documents to skip.
+ * @param {number} [limit=20] - The maximum number of documents to return.
+ * @returns {Promise<Array>} The matched files.
+ */
+async findFiles(params, skip = 0, limit = 20) {
+  if (this.isAlive()) {
+    return await this.files.find(params).skip(skip).limit(limit).toArray();
+  }
+  return [];
+}
+
+
   /**
    * Inserts a new object into the 'users' collection.
    * @param {Object} params - The object to insert.
