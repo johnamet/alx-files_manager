@@ -1,6 +1,4 @@
-import pkg from 'mongodb';
-
-const { MongoClient } = pkg;
+import { MongoClient } from 'mongodb';
 
 class DBClient {
   constructor() {
@@ -12,7 +10,6 @@ class DBClient {
     this.client = new MongoClient(url, { useNewUrlParser: true, useUnifiedTopology: true });
 
     this.client.connect().then(() => {
-      console.log("Connected to MongoDB");
       this.db = this.client.db(database);
       this.users = this.db.collection("users");
       this.files = this.db.collection("files");
