@@ -28,7 +28,7 @@ class UsersController {
 
     try {
       // Check if a user with the provided email already exists
-      const existingUser = await dbClient.findOne({ email });
+      const existingUser = await dbClient.findOneUser({ email });
 
       if (existingUser) {
         return res.status(400).send({ error: 'Already exists' });
@@ -64,7 +64,7 @@ class UsersController {
       return res.status(401).send({ error: 'Unauthorized' });
     }
 
-    const user = await dbClient.findOne({ _id: new ObjectId(userId) });
+    const user = await dbClient.findOneUser({ _id: new ObjectId(userId) });
 
     if (!user) {
       return res.status(401).send({ error: 'Unauthorized' });

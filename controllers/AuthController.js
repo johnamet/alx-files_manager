@@ -17,11 +17,6 @@ function parseAuthorizationHeader(authHeader) {
   const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
   const [email, password] = credentials.split(':');
 
-  console.log(credentials);
-
-  console.log(email);
-  console.log(password);
-
   return { email, password };
 }
 

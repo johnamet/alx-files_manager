@@ -72,9 +72,24 @@ class DBClient {
    * @param {Object} params - The parameters to match.
    * @returns {Promise<Object|null>} The matched user or null if no user is found.
    */
-  async findOne(params) {
+  async findOneUser(params) {
     if (this.isAlive()) {
       return await this.users.findOne(params);
+    }
+
+    return {};
+  }
+
+  /**
+   * Finds a single file in the 'files' collection that
+   * matches the given parameters.
+   * @param {Object} params - The parameters to match
+   * @returns {Promise<Object|null>} The matched file or null if file not found.  
+   */
+
+  async findOneFile(params){
+    if(this.isAlive()) {
+      return await this.files.findOne(params);
     }
 
     return {};
@@ -85,9 +100,23 @@ class DBClient {
    * @param {Object} params - The object to insert.
    * @returns {Promise<Object>} The result of the insertion.
    */
-  async insertObject(params) {
+  async insertUserObject(params) {
     if (this.isAlive()) {
       return await this.users.insertOne(params);
+    }
+
+    return {};
+  }
+
+
+  /**
+   * Inserts a new object into the 'files' collection.
+   * @param {Object} params - The object to insert.
+   * @returns {Promise<Object>} The result of the insertion.
+   */
+  async insertFileObject(params) {
+    if (this.isAlive()) {
+      return await this.files.insertOne(params);
     }
 
     return {};
