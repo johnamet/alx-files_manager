@@ -125,6 +125,73 @@ class FilesController {
       return res.status(500).send({ error: 'Internal server error' });
     }
   }
+
+  static async putPublish(req, res) {
+    const fileId = req.params.id;
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+
+    const userId = await redisClient.get(key);
+
+    if (!userId) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
+
+    if (!ObjectId.isValid(fileId)) {
+      return res.status(400).send({ error: 'Invalid ID format' });
+    }
+
+    try {
+      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
+
+      if (!file) {
+        return res.status(404).send({ error: 'Not found' });
+      }
+
+      await dbClient.updateFile({ _id: new ObjectId(fileId) }, { isPublic: true });
+
+      const updatedFile = await dbClient.findOneFile({ _id: new ObjectId(fileId) });
+      console.log(updatedFile);
+
+      return res.status(200).send(updatedFile);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send({ error: 'Internal server error' });
+    }
+  }
+
+  static async putUnpublish(req, res) {
+    const fileId = req.params.id;
+    const token = req.header('X-Token');
+    const key = `auth_${token}`;
+
+    const userId = await redisClient.get(key);
+
+    if (!userId) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
+
+    if (!ObjectId.isValid(fileId)) {
+      return res.status(400).send({ error: 'Invalid ID format' });
+    }
+
+    try {
+      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
+
+      if (!file) {
+        return res.status(404).send({ error: 'Not found' });
+      }
+
+      await dbClient.updateFile({ _id: new ObjectId(fileId) }, { isPublic: false });
+
+      const updatedFile = await dbClient.findOneFile({ _id: new ObjectId(fileId) });
+
+      return res.status(200).send(updatedFile);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send({ error: 'Internal server error' });
+    }
+  }
 }
 
 export default FilesController;

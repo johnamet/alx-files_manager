@@ -110,6 +110,14 @@ async findFiles(params, skip = 0, limit = 20) {
   return [];
 }
 
+async updateFile(filter, update) {
+  if(this.isAlive()){
+    return await this.files.updateOne(filter, {$set :update})
+  }
+
+  return null;
+}
+
 
   /**
    * Inserts a new object into the 'users' collection.
