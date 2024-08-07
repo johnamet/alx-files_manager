@@ -37,6 +37,24 @@ class DBClient {
     }
     return 0;
   }
+
+  async allUsers() {
+    if (this.isAlive()){
+      return await this.users.find({}).toArray()
+    }
+  }
+
+  async findUser(params) {
+    if (this.isAlive()){
+      return await this.users.find(params).toArray();
+    }
+  }
+
+  async insertObject(params){
+    if (this.isAlive()){
+      return await this.users.insertOne(params);
+    }
+  }
 }
 
 const dbClient = new DBClient();

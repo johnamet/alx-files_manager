@@ -1,7 +1,9 @@
-import express from 'express';
+import express, { json } from 'express';
 import router from './routes/index';
 
 const app = express();
+
+app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 
