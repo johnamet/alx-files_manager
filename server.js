@@ -3,7 +3,7 @@ import router from './routes/index';
 
 const app = express();
 
-app.use(express.json());
+app.use(json());
 
 const PORT = process.env.PORT || 5000;
 

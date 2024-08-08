@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import userQueue from '../worker';
+import sha1 from "sha1";
 
 /**
  * UsersController class handles user-related operations.
@@ -16,37 +16,29 @@ class UsersController {
   static async postNew(req, res) {
     const { email, password } = req.body;
 
-    // Check if email is provided
     if (!email) {
       return res.status(400).send({ error: 'Missing email' });
     }
 
-    // Check if password is provided
     if (!password) {
       return res.status(400).send({ error: 'Missing password' });
     }
 
     try {
-      // Check if a user with the provided email already exists
       const existingUser = await dbClient.findOneUser({ email });
 
       if (existingUser) {
         return res.status(400).send({ error: 'Already exists' });
       }
 
-      // Add a job to the queue for user creation
-      const job = await userQueue.add('createUser', { email, password });
+      const hashedPassword = sha1(password);
+      const result = await dbClient.insertUserObject({ email, password: hashedPassword });
 
-      job.finished().then(() => res.status(201).send({ email })).catch((error) => {
-        console.error(error);
-        return res.status(500).send({ error: 'Internal server error' });
-      });
+      return res.status(201).send({ email, id: result.insertedId });
     } catch (error) {
       console.error(error);
       return res.status(500).send({ error: 'Internal server error' });
     }
-
-    return {};
   }
 
   /**

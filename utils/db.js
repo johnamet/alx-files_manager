@@ -145,6 +145,7 @@ async updateFile(filter, update) {
 
     return {};
   }
+
 }
 
 const dbClient = new DBClient();

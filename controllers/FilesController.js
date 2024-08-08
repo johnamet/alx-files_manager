@@ -62,9 +62,9 @@ class FilesController {
       const job = await fileQueue.add('uploadFile', fileData);
 
       job.finished().then(async (newFile) => {
-        if (type === 'image') {
-          await fileQueue.add('generateThumbnails', { userId, fileId: newFile.insertedId });
-        }
+        // if (type === 'image') {
+        //   await fileQueue.add('generateThumbnails', { userId, fileId: newFile.insertedId });
+        // }
         res.status(201).send(newFile);
       }).catch((err) => {
         res.status(500).send({ error: 'Internal server error', details: err });

@@ -1,5 +1,5 @@
 import redis from 'redis';
-import { promisify } from 'util';
+import {promisify} from 'util';
 
 /**
  * Class for performing operations with Redis service
@@ -32,8 +32,7 @@ class RedisClient {
    * @return {string}  value of key
    */
   async get(key) {
-    const value = await this.getAsync(key);
-    return value;
+    return await this.getAsync(key);
   }
 
   /**
