@@ -1,6 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
 import redisClient from '../utils/redis';
 import userQueue from '../worker';
+import dbClient from "../utils/db";
+import sha1 from "sha1";
 
 /**
  * Parses the Basic Authorization header.
@@ -40,25 +42,17 @@ class AuthController {
 
     const { email, password } = credentials;
 
-    const job = await userQueue.add('signInUser', { emailSignIn: email, passwordSignIn: password });
+    const findResult = await dbClient.findOneUser( { email, password: sha1(password) } );
 
-    job.finished().then((user) => {
-      if (!user) {
-        return res.status(401).send({ error: 'Unauthorized' });
-      }
+    if (!findResult) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
 
       const token = uuidV4();
       const key = `auth_${token}`;
-      redisClient.set(key, user._id.toString(), 24 * 60 * 60);
+      redisClient.set(key, findResult._id.toString(), 24 * 60 * 60);
 
       return res.status(200).send({ token });
-    }).catch((error) => {
-      console.error(error);
-      return res.status(500).send({ error: 'Internal server error' });
-    });
-
-    // Ensure there's always a return value
-    return {};
   }
 
   /**
