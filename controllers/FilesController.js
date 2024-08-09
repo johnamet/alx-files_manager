@@ -4,6 +4,7 @@ import mime from 'mime-types';
 import dbClient from '../utils/db';
 import { fileQueue } from '../worker';
 import redisClient from '../utils/redis';
+import {type} from "mocha/lib/utils";
 
 class FilesController {
   static async postUpload(req, res) {
@@ -43,7 +44,7 @@ class FilesController {
     }
 
     if (parentId) {
-      const file = await dbClient.findOneFile({ _id: new ObjectId(parentId) });
+      const file = await dbClient.findOneFile({ parentId });
 
       if (!file) {
         return res.status(400).send({ error: 'Parent not found' });
@@ -87,7 +88,8 @@ class FilesController {
   }
 
   static async getShow(req, res) {
-    const fileId = req.params.id;
+    const parentId = req.params.id;
+
     const token = req.header('X-Token');
     const key = `auth_${token}`;
 
@@ -97,13 +99,14 @@ class FilesController {
       return res.status(401).send({ error: 'Unauthorized' });
     }
 
-    if (!ObjectId.isValid(fileId)) {
-      return res.status(400).send({ error: 'Invalid ID format' });
+    const query = {
+      parentId: '0'
     }
 
     try {
-      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
-
+      const file = await dbClient.findOneFile({_id: new ObjectId(parentId),
+        userId: new ObjectId(userId) });
+      console.log(file);
       if (!file) {
         return res.status(404).send({ error: 'Not found' });
       }
@@ -121,19 +124,26 @@ class FilesController {
 
     const userId = await redisClient.get(key);
 
+
     if (!userId) {
       return res.status(401).send({ error: 'Unauthorized' });
     }
 
-    const { parentId = 0, page = 0 } = req.query;
+    const { parentId = '0', page = 0 } = req.query;
     const limit = 20;
     const skip = page * limit;
 
     try {
-      const files = await dbClient.findFiles({
-        userId,
-        parentId,
-      }, skip, limit);
+      const files = (await dbClient.findFiles({
+        userId: ObjectId(userId),
+        parentId: parentId !== '0' ? ObjectId(parentId): parentId,
+      }, skip, limit)).map((file) => {
+        file.id = file._id
+        delete file._id
+        return file;
+      });
+
+      console.log(files)
 
       return res.status(200).send(files);
     } catch (error) {
@@ -158,7 +168,8 @@ class FilesController {
     }
 
     try {
-      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
+      const file = await dbClient.findOneFile({ _id: ObjectId(fileId),
+        userId: ObjectId(userId) });
 
       if (!file) {
         return res.status(404).send({ error: 'Not found' });
@@ -192,7 +203,8 @@ class FilesController {
     }
 
     try {
-      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId), userId });
+      const file = await dbClient.findOneFile({ _id: ObjectId(fileId),
+        userId: ObjectId(userId) });
 
       if (!file) {
         return res.status(404).send({ error: 'Not found' });
@@ -222,13 +234,14 @@ class FilesController {
     }
 
     try {
-      const file = await dbClient.findOneFile({ _id: new ObjectId(fileId) });
+      const file = await dbClient.findOneFile({ _id: ObjectId(fileId), userId: ObjectId(userId) });
 
       if (!file) {
+        console.log("File not found");
         return res.status(404).send({ error: 'Not found' });
       }
 
-      if (!file.isPublic && (!userId || file.userId !== userId)) {
+      if (!file.isPublic && (!userId || file.userId.toString() !== userId)) {
         return res.status(404).send({ error: 'Not found' });
       }
 
@@ -243,6 +256,7 @@ class FilesController {
       }
 
       if (!fs.existsSync(filePath)) {
+        console.error("Path  does not exist")
         return res.status(404).send({ error: 'Not found' });
       }
 

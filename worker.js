@@ -34,6 +34,7 @@ fileQueue.process('uploadFile', async (job, done) => {
 
     if (type === 'folder') {
       const newFile = await dbClient.insertFileObject(fileData);
+      newFile.parentId = newFile._id
       done(null, newFile.ops[0]);
       return;
     }
@@ -127,3 +128,5 @@ userQueue.process('sendWelcomeEmail', async (job, done) => {
 
 export default userQueue;
 export { fileQueue };
+
+
