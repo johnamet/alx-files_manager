@@ -43,6 +43,10 @@ class AuthController {
 
       const { email, password } = credentials;
 
+      if (!email || !password){
+        return res.status(401).send({ error: 'Unauthorized' });
+      }
+
       // Log the query parameters
       console.log(`Querying for user with email: ${email}`);
 
