@@ -54,7 +54,7 @@ fileQueue.process('uploadFile', async (job, done) => {
 
     const newFile = savedFile.ops[0];
 
-    newFile.id = savedFile.ops[0].id;
+    newFile.id = savedFile.ops[0]._id;
     delete newFile._id;
 
     done(null, newFile);
