@@ -33,42 +33,40 @@ class AuthController {
      * @param {object} res - The response object used to send back the appropriate HTTP response.
      */
   static async getConnect(req, res) {
-    try {
-      const authHeader = req.headers.authorization;
-      const credentials = parseAuthorizationHeader(authHeader);
+    const authHeader = req.headers.authorization;
+    const credentials = parseAuthorizationHeader(authHeader);
 
-      if (!credentials) {
-        return res.status(401).send({ error: 'Unauthorized' });
-      }
+    if (!credentials) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
 
-      const { email, password } = credentials;
+    const { email, password } = credentials;
 
-      if (!email || !password){
-        return res.status(401).send({ error: 'Unauthorized' });
-      }
+    if (!email || !password) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
+    const findResult = await dbClient.findOneUser( { email, password: sha1(password) } );
 
-      // Log the query parameters
-      console.log(`Querying for user with email: ${email}`);
+    const job = await userQueue.add('signInUser', { emailSignIn: email, passwordSignIn: password });
 
-      const user = await dbClient.findOneUser({ email, password: sha1(password) });
-
-      // Check if the query was successful
+    job.finished().then((user) => {
       if (!user) {
         return res.status(401).send({ error: 'Unauthorized' });
       }
 
       const token = uuidV4();
       const key = `auth_${token}`;
-      redisClient.set(key, user._id.toString(), 24 * 60 * 60); // Set key with expiry time
+      redisClient.set(key, user._id.toString(), 24 * 60 * 60);
 
       return res.status(200).send({ token });
+    }).catch((error) => {
+      console.error(error);
+      return res.status(500).send({ error: 'Internal server error' });
+    });
 
-    } catch (error) {
-      console.error('Error during authentication:', error);
-      return res.status(500).send({ error: 'Internal Server Error' });
-    }
+    // Ensure there's always a return value
+    return {};
   }
-
 
   /**
      * Signs out the user based on the token.
@@ -80,23 +78,27 @@ class AuthController {
   static async getDisconnect(req, res) {
     const token = req.header('X-Token');
 
+    console.log(token);
+
     if (!token) {
       return res.status(401).send({ error: 'Unauthorized' });
     }
 
-    const key = `auth_${token}`;
+    const userId = await redisClient.get(`auth_${token}`);
 
-    const userId = await redisClient.get(key);
-
-    if (!userId) {
-      return res.status(401).send({ error: 'Unauthorized' });
+    if (!userId){
+      return res.status(401).send({error: "Unauthorized"});
     }
 
-    redisClient.del(key)
+    const job = await userQueue.add('signOutUser', { token });
 
-    return res.status(204).send({ });
+    job.finished().then(() => res.status(204).send({})).catch((error) => {
+      console.error(error);
+      return res.status(500).send({ error: 'Internal server error' });
+    });
 
-
+    // Ensure there's always a return value
+    return {};
   }
 }
 
