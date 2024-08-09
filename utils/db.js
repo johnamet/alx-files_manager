@@ -5,6 +5,9 @@ class DBClient {
      * Constructor initializes the connection to MongoDB using environment
      * variables for configuration.
      */
+
+  users = null;
+
   constructor() {
     const host = process.env.DB_HOST || 'localhost'; // MongoDB host
     const port = process.env.DB_PORT || '27017'; // MongoDB port
@@ -58,7 +61,7 @@ class DBClient {
 
   /**
      * Retrieves all users from the 'users' collection.
-     * @returns {Promise<Array>} An array of all users.
+     * @returns {Promise<{}>} An array of all users.
      */
   async allUsers() {
     if (this.isAlive()) {
@@ -77,7 +80,7 @@ class DBClient {
       return this.users.findOne(params);
     }
 
-    return {};
+    return null;
   }
 
   /**

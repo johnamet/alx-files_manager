@@ -33,27 +33,38 @@ class AuthController {
      * @param {object} res - The response object used to send back the appropriate HTTP response.
      */
   static async getConnect(req, res) {
-    const authHeader = req.headers.authorization;
-    const credentials = parseAuthorizationHeader(authHeader);
+    try {
+      const authHeader = req.headers.authorization;
+      const credentials = parseAuthorizationHeader(authHeader);
 
-    if (!credentials) {
-      return res.status(401).send({ error: 'Unauthorized' });
-    }
+      if (!credentials) {
+        return res.status(401).send({ error: 'Unauthorized' });
+      }
 
-    const { email, password } = credentials;
+      const { email, password } = credentials;
 
-    const findResult = await dbClient.findOneUser( { email, password: sha1(password) } );
+      // Log the query parameters
+      console.log(`Querying for user with email: ${email}`);
 
-    if (!findResult) {
-      return res.status(401).send({ error: 'Unauthorized' });
-    }
+      const user = await dbClient.findOneUser({ email, password: sha1(password) });
+
+      // Check if the query was successful
+      if (!user) {
+        return res.status(401).send({ error: 'Unauthorized' });
+      }
 
       const token = uuidV4();
       const key = `auth_${token}`;
-      redisClient.set(key, findResult._id.toString(), 24 * 60 * 60);
+      redisClient.set(key, user._id.toString(), 24 * 60 * 60); // Set key with expiry time
 
       return res.status(200).send({ token });
+
+    } catch (error) {
+      console.error('Error during authentication:', error);
+      return res.status(500).send({ error: 'Internal Server Error' });
+    }
   }
+
 
   /**
      * Signs out the user based on the token.
