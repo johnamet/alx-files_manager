@@ -80,21 +80,23 @@ class AuthController {
   static async getDisconnect(req, res) {
     const token = req.header('X-Token');
 
-    console.log(token);
-
     if (!token) {
       return res.status(401).send({ error: 'Unauthorized' });
     }
 
-    const job = await userQueue.add('signOutUser', { token });
+    const key = `auth_${token}`;
 
-    job.finished().then(() => res.status(204).send({})).catch((error) => {
-      console.error(error);
-      return res.status(500).send({ error: 'Internal server error' });
-    });
+    const userId = await redisClient.get(key);
 
-    // Ensure there's always a return value
-    return {};
+    if (!userId) {
+      return res.status(401).send({ error: 'Unauthorized' });
+    }
+
+    redisClient.del(key)
+
+    return res.status(204).send({ });
+
+
   }
 }
 
