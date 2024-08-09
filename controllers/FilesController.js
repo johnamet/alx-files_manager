@@ -234,7 +234,8 @@ class FilesController {
     }
 
     try {
-      const file = await dbClient.findOneFile({ _id: ObjectId(fileId), userId: ObjectId(userId) });
+      const file = await dbClient.findOneFile({ _id: ObjectId(fileId) });
+
 
       if (!file) {
         console.log('File not found');
