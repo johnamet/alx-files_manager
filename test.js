@@ -4,7 +4,7 @@ import chaiHttp from 'chai-http';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 
-import MongoClient from 'mongodb';
+import { MongoClient, ObjectID} from 'mongodb';
 import { promisify } from 'util';
 import redis from 'redis';
 import sha1 from 'sha1';
@@ -23,7 +23,10 @@ describe('POST /files', () => {
     let initialUserId = null;
     let initialUserToken = null;
 
+    let initialFolderId = null;
+
     const folderTmpFilesManagerPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+
 
     const fctRandomString = () => {
         return Math.random().toString(36).substring(2, 15);
@@ -66,6 +69,18 @@ describe('POST /files', () => {
                     initialUserId = createdDocs.ops[0]._id.toString();
                 }
 
+                // Add 1 folder
+                const initialFolder = {
+                    userId: ObjectID(initialUserId),
+                    name: "newFolder",
+                    type: "folder",
+                    parentId: '0'
+                };
+                const createdFileDocs = await testClientDb.collection('files').insertOne(initialFolder);
+                if (createdFileDocs && createdFileDocs.ops.length > 0) {
+                    initialFolderId = createdFileDocs.ops[0]._id.toString();
+                }
+
                 testRedisClient = redis.createClient();
                 redisDelAsync = promisify(testRedisClient.del).bind(testRedisClient);
                 redisGetAsync = promisify(testRedisClient.get).bind(testRedisClient);
@@ -88,12 +103,13 @@ describe('POST /files', () => {
         fctRemoveTmp();
     });
 
-    it('POST /files creates a file at the root', (done) => {
+    it('POST /files creates a file inside a folder', (done) => {
         const fileClearContent = fctRandomString();
         const fileData = {
             name: fctRandomString(),
             type: 'file',
-            data: Buffer.from(fileClearContent, 'binary').toString('base64')
+            data: Buffer.from(fileClearContent, 'binary').toString('base64'),
+            parentId: initialFolderId
         }
 
         let filesInTmpFilesManager = [];
@@ -113,19 +129,20 @@ describe('POST /files', () => {
                 chai.expect(resFile.name).to.equal(fileData.name);
                 chai.expect(resFile.userId).to.equal(initialUserId);
                 chai.expect(resFile.type).to.equal(fileData.type);
-                chai.expect(resFile.parentId).to.equal(0);
+                chai.expect(resFile.parentId).to.equal(initialFolderId);
 
                 testClientDb.collection('files')
                     .find({})
                     .toArray((err, docs) => {
                         chai.expect(err).to.be.null;
-                        chai.expect(docs.length).to.equal(1);
-                        const docFile = docs[0];
+                        chai.expect(docs.length).to.equal(2);
+
+                        const docFile = docs.filter((i) => i._id.toString() == resFile.id.toString())[0];
                         chai.expect(docFile.name).to.equal(fileData.name);
                         chai.expect(docFile._id.toString()).to.equal(resFile.id);
                         chai.expect(docFile.userId.toString()).to.equal(initialUserId);
                         chai.expect(docFile.type).to.equal(fileData.type);
-                        chai.expect(docFile.parentId.toString()).to.equal('0');
+                        chai.expect(docFile.parentId.toString()).to.equal(initialFolderId);
 
                         let newFilesInTmpFilesManager = [];
                         if (fs.existsSync(folderTmpFilesManagerPath)) {

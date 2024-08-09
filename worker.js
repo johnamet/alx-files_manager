@@ -53,7 +53,6 @@ fileQueue.process('uploadFile', async (job, done) => {
     const savedFile = await dbClient.insertFileObject(fileData);
 
     const newFile = savedFile.ops[0];
-
     newFile.id = savedFile.ops[0]._id;
     delete newFile._id;
 
