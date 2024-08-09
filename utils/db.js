@@ -6,8 +6,6 @@ class DBClient {
      * variables for configuration.
      */
 
-  users;
-
   constructor() {
     const host = process.env.DB_HOST || 'localhost'; // MongoDB host
     const port = process.env.DB_PORT || '27017'; // MongoDB port
