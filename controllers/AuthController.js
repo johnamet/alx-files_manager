@@ -1,8 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
+import sha1 from 'sha1';
 import redisClient from '../utils/redis';
 import userQueue from '../worker';
-import dbClient from "../utils/db";
-import sha1 from "sha1";
+import dbClient from '../utils/db';
 
 /**
  * Parses the Basic Authorization header.
@@ -45,7 +45,6 @@ class AuthController {
     if (!email || !password) {
       return res.status(401).send({ error: 'Unauthorized' });
     }
-    const findResult = await dbClient.findOneUser( { email, password: sha1(password) } );
 
     const job = await userQueue.add('signInUser', { emailSignIn: email, passwordSignIn: password });
 
@@ -86,8 +85,8 @@ class AuthController {
 
     const userId = await redisClient.get(`auth_${token}`);
 
-    if (!userId){
-      return res.status(401).send({error: "Unauthorized"});
+    if (!userId) {
+      return res.status(401).send({ error: 'Unauthorized' });
     }
 
     const job = await userQueue.add('signOutUser', { token });

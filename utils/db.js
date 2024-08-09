@@ -6,7 +6,7 @@ class DBClient {
      * variables for configuration.
      */
 
-  users = null;
+  users;
 
   constructor() {
     const host = process.env.DB_HOST || 'localhost'; // MongoDB host
