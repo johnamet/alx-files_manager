@@ -2,9 +2,8 @@ import chai from 'chai';
 import chaiHttp from 'chai-http';
 
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 
-import { MongoClient, ObjectID} from 'mongodb';
+import MongoClient from 'mongodb';
 import { promisify } from 'util';
 import redis from 'redis';
 import sha1 from 'sha1';
@@ -23,11 +22,6 @@ describe('POST /files', () => {
     let initialUserId = null;
     let initialUserToken = null;
 
-    let initialFolderId = null;
-
-    const folderTmpFilesManagerPath = process.env.FOLDER_PATH || '/tmp/files_manager';
-
-
     const fctRandomString = () => {
         return Math.random().toString(36).substring(2, 15);
     }
@@ -37,13 +31,6 @@ describe('POST /files', () => {
             await redisDelAsync(key);
         });
     }
-    const fctRemoveTmp = () => {
-        if (fs.existsSync(folderTmpFilesManagerPath)) {
-            fs.readdirSync(`${folderTmpFilesManagerPath}/`).forEach((i) => {
-                fs.unlinkSync(`${folderTmpFilesManagerPath}/${i}`)
-            })
-        }
-    }
 
     beforeEach(() => {
         const dbInfo = {
@@ -52,7 +39,6 @@ describe('POST /files', () => {
             database: process.env.DB_DATABASE || 'files_manager'
         };
         return new Promise((resolve) => {
-            fctRemoveTmp();
             MongoClient.connect(`mongodb://${dbInfo.host}:${dbInfo.port}/${dbInfo.database}`, async (err, client) => {
                 testClientDb = client.db(dbInfo.database);
 
@@ -67,18 +53,6 @@ describe('POST /files', () => {
                 const createdDocs = await testClientDb.collection('users').insertOne(initialUser);
                 if (createdDocs && createdDocs.ops.length > 0) {
                     initialUserId = createdDocs.ops[0]._id.toString();
-                }
-
-                // Add 1 folder
-                const initialFolder = {
-                    userId: ObjectID(initialUserId),
-                    name: "newFolder",
-                    type: "folder",
-                    parentId: '0'
-                };
-                const createdFileDocs = await testClientDb.collection('files').insertOne(initialFolder);
-                if (createdFileDocs && createdFileDocs.ops.length > 0) {
-                    initialFolderId = createdFileDocs.ops[0]._id.toString();
                 }
 
                 testRedisClient = redis.createClient();
@@ -100,23 +74,13 @@ describe('POST /files', () => {
 
     afterEach(() => {
         fctRemoveAllRedisKeys();
-        fctRemoveTmp();
     });
 
-    it('POST /files creates a file inside a folder', (done) => {
-        const fileClearContent = fctRandomString();
+    it('POST /files creates a folder at the root', (done) => {
         const fileData = {
             name: fctRandomString(),
-            type: 'file',
-            data: Buffer.from(fileClearContent, 'binary').toString('base64'),
-            parentId: initialFolderId
+            type: 'folder',
         }
-
-        let filesInTmpFilesManager = [];
-        if (fs.existsSync(folderTmpFilesManagerPath)) {
-            filesInTmpFilesManager = fs.readdirSync(folderTmpFilesManagerPath);
-        }
-
         chai.request('http://localhost:5000')
             .post('/files')
             .set('X-Token', initialUserToken)
@@ -129,31 +93,19 @@ describe('POST /files', () => {
                 chai.expect(resFile.name).to.equal(fileData.name);
                 chai.expect(resFile.userId).to.equal(initialUserId);
                 chai.expect(resFile.type).to.equal(fileData.type);
-                chai.expect(resFile.parentId).to.equal(initialFolderId);
+                chai.expect(resFile.parentId).to.equal(0);
 
                 testClientDb.collection('files')
                     .find({})
                     .toArray((err, docs) => {
                         chai.expect(err).to.be.null;
-                        chai.expect(docs.length).to.equal(2);
-
-                        const docFile = docs.filter((i) => i._id.toString() == resFile.id.toString())[0];
+                        chai.expect(docs.length).to.equal(1);
+                        const docFile = docs[0];
                         chai.expect(docFile.name).to.equal(fileData.name);
                         chai.expect(docFile._id.toString()).to.equal(resFile.id);
                         chai.expect(docFile.userId.toString()).to.equal(initialUserId);
                         chai.expect(docFile.type).to.equal(fileData.type);
-                        chai.expect(docFile.parentId.toString()).to.equal(initialFolderId);
-
-                        let newFilesInTmpFilesManager = [];
-                        if (fs.existsSync(folderTmpFilesManagerPath)) {
-                            newFilesInTmpFilesManager = fs.readdirSync(folderTmpFilesManagerPath);
-                        }
-                        chai.expect(newFilesInTmpFilesManager.length).to.equal(filesInTmpFilesManager.length + 1);
-                        const newFileInDiskPath = newFilesInTmpFilesManager.filter(x => !filesInTmpFilesManager.includes(x));
-
-                        const newFileInDiskContent = fs.readFileSync(`${folderTmpFilesManagerPath}/${newFileInDiskPath[0]}`).toString();
-                        chai.expect(newFileInDiskContent).to.equal(fileClearContent);
-
+                        chai.expect(docFile.parentId.toString()).to.equal('0');
                         done();
                     })
             });

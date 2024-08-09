@@ -70,6 +70,10 @@ class FilesController {
         //   await fileQueue.add('generateThumbnails', { userId, fileId: newFile.insertedId });
         // }
 
+        const file = newFile;
+        file.id = newFile._id;
+        delete file._id;
+
         res.status(201).send(newFile);
       }).catch((err) => {
         res.status(500).send({ error: 'Internal server error', details: err });
