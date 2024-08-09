@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 import redisClient from '../utils/redis';
-import userQueue from '../worker';
+import userQueue from '../utils/queue';
 
 /**
  * Parses the Basic Authorization header.
@@ -17,6 +17,11 @@ function parseAuthorizationHeader(authHeader) {
   const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
   const [email, password] = credentials.split(':');
 
+  console.log(credentials);
+
+  console.log(email);
+  console.log(password);
+
   return { email, password };
 }
 
@@ -25,11 +30,11 @@ function parseAuthorizationHeader(authHeader) {
  */
 class AuthController {
   /**
-     * Signs in the user by generating a new authentication token.
-     *
-     * @param {object} req - The request object containing the headers with the Basic auth string.
-     * @param {object} res - The response object used to send back the appropriate HTTP response.
-     */
+   * Signs in the user by generating a new authentication token.
+   *
+   * @param {object} req - The request object containing the headers with the Basic auth string.
+   * @param {object} res - The response object used to send back the appropriate HTTP response.
+   */
   static async getConnect(req, res) {
     const authHeader = req.headers.authorization;
     const credentials = parseAuthorizationHeader(authHeader);
@@ -39,10 +44,6 @@ class AuthController {
     }
 
     const { email, password } = credentials;
-
-    if (!email || !password) {
-      return res.status(401).send({ error: 'Unauthorized' });
-    }
 
     const job = await userQueue.add('signInUser', { emailSignIn: email, passwordSignIn: password });
 
@@ -66,24 +67,17 @@ class AuthController {
   }
 
   /**
-     * Signs out the user based on the token.
-     *
-     * @param {object} req - The request object containing the headers with the authentication
-     * token.
-     * @param {object} res - The response object used to send back the appropriate HTTP response.
-     */
+   * Signs out the user based on the token.
+   *
+   * @param {object} req - The request object containing the headers with the authentication token.
+   * @param {object} res - The response object used to send back the appropriate HTTP response.
+   */
   static async getDisconnect(req, res) {
     const token = req.header('X-Token');
 
     console.log(token);
 
     if (!token) {
-      return res.status(401).send({ error: 'Unauthorized' });
-    }
-
-    const userId = await redisClient.get(`auth_${token}`);
-
-    if (!userId) {
       return res.status(401).send({ error: 'Unauthorized' });
     }
 
