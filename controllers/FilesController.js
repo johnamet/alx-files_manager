@@ -30,8 +30,12 @@ class FilesController {
       return res.status(400).send({ error: 'Missing name' });
     }
 
+    if(!type){
+      return res.status(400).send({error: 'Missing type' });
+    }
+
     if (!['folder', 'file', 'image'].includes(type)) {
-      return res.status(400).send({ error: 'Invalid type' });
+      return res.status(400).send({ error: 'Missing type' });
     }
 
     if (type !== 'folder' && !data) {
@@ -65,6 +69,10 @@ class FilesController {
         // if (type === 'image') {
         //   await fileQueue.add('generateThumbnails', { userId, fileId: newFile.insertedId });
         // }
+
+        newFile.id = newFile._id;
+        delete newFile._id;
+
         res.status(201).send(newFile);
       }).catch((err) => {
         res.status(500).send({ error: 'Internal server error', details: err });

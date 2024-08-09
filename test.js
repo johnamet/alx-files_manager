@@ -2,6 +2,7 @@ import chai from 'chai';
 import chaiHttp from 'chai-http';
 
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
 
 import MongoClient from 'mongodb';
 import { promisify } from 'util';
@@ -10,7 +11,7 @@ import sha1 from 'sha1';
 
 chai.use(chaiHttp);
 
-describe('GET /disconnect', () => {
+describe('POST /files', () => {
     let testClientDb;
     let testRedisClient;
     let redisDelAsync;
@@ -22,6 +23,8 @@ describe('GET /disconnect', () => {
     let initialUserId = null;
     let initialUserToken = null;
 
+    const folderTmpFilesManagerPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+
     const fctRandomString = () => {
         return Math.random().toString(36).substring(2, 15);
     }
@@ -31,6 +34,13 @@ describe('GET /disconnect', () => {
             await redisDelAsync(key);
         });
     }
+    const fctRemoveTmp = () => {
+        if (fs.existsSync(folderTmpFilesManagerPath)) {
+            fs.readdirSync(`${folderTmpFilesManagerPath}/`).forEach((i) => {
+                fs.unlinkSync(`${folderTmpFilesManagerPath}/${i}`)
+            })
+        }
+    }
 
     beforeEach(() => {
         const dbInfo = {
@@ -39,10 +49,12 @@ describe('GET /disconnect', () => {
             database: process.env.DB_DATABASE || 'files_manager'
         };
         return new Promise((resolve) => {
+            fctRemoveTmp();
             MongoClient.connect(`mongodb://${dbInfo.host}:${dbInfo.port}/${dbInfo.database}`, async (err, client) => {
                 testClientDb = client.db(dbInfo.database);
 
                 await testClientDb.collection('users').deleteMany({})
+                await testClientDb.collection('files').deleteMany({})
 
                 // Add 1 user
                 initialUser = {
@@ -73,28 +85,60 @@ describe('GET /disconnect', () => {
 
     afterEach(() => {
         fctRemoveAllRedisKeys();
+        fctRemoveTmp();
     });
 
-    it('GET /disconnect with an incorrect token', (done) => {
-        redisKeysAsync('auth_*')
-            .then((keys) => {
-                chai.expect(keys.length).to.equal(1);
+    it('POST /files creates a file at the root', (done) => {
+        const fileClearContent = fctRandomString();
+        const fileData = {
+            name: fctRandomString(),
+            type: 'file',
+            data: Buffer.from(fileClearContent, 'binary').toString('base64')
+        }
 
-                chai.request('http://localhost:5000')
-                    .get('/disconnect')
-                    .set('X-Token', "nope")
-                    .end(async (err, res) => {
+        let filesInTmpFilesManager = [];
+        if (fs.existsSync(folderTmpFilesManagerPath)) {
+            filesInTmpFilesManager = fs.readdirSync(folderTmpFilesManagerPath);
+        }
+
+        chai.request('http://localhost:5000')
+            .post('/files')
+            .set('X-Token', initialUserToken)
+            .send(fileData)
+            .end(async (err, res) => {
+                chai.expect(err).to.be.null;
+                chai.expect(res).to.have.status(201);
+
+                const resFile = res.body;
+                chai.expect(resFile.name).to.equal(fileData.name);
+                chai.expect(resFile.userId).to.equal(initialUserId);
+                chai.expect(resFile.type).to.equal(fileData.type);
+                chai.expect(resFile.parentId).to.equal(0);
+
+                testClientDb.collection('files')
+                    .find({})
+                    .toArray((err, docs) => {
                         chai.expect(err).to.be.null;
-                        chai.expect(res).to.have.status(401);
+                        chai.expect(docs.length).to.equal(1);
+                        const docFile = docs[0];
+                        chai.expect(docFile.name).to.equal(fileData.name);
+                        chai.expect(docFile._id.toString()).to.equal(resFile.id);
+                        chai.expect(docFile.userId.toString()).to.equal(initialUserId);
+                        chai.expect(docFile.type).to.equal(fileData.type);
+                        chai.expect(docFile.parentId.toString()).to.equal('0');
 
-                        const resError = res.body.error;
-                        chai.expect(resError).to.equal("Unauthorized");
+                        let newFilesInTmpFilesManager = [];
+                        if (fs.existsSync(folderTmpFilesManagerPath)) {
+                            newFilesInTmpFilesManager = fs.readdirSync(folderTmpFilesManagerPath);
+                        }
+                        chai.expect(newFilesInTmpFilesManager.length).to.equal(filesInTmpFilesManager.length + 1);
+                        const newFileInDiskPath = newFilesInTmpFilesManager.filter(x => !filesInTmpFilesManager.includes(x));
 
-                        const authKeys = await redisKeysAsync('auth_*');
-                        chai.expect(authKeys.length).to.equal(1);
+                        const newFileInDiskContent = fs.readFileSync(`${folderTmpFilesManagerPath}/${newFileInDiskPath[0]}`).toString();
+                        chai.expect(newFileInDiskContent).to.equal(fileClearContent);
 
                         done();
-                    });
+                    })
             });
     }).timeout(30000);
 });
